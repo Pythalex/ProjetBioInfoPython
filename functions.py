@@ -2,11 +2,6 @@ import re
 import numpy as np
 import time
 
-import importlib
-pb = importlib.util.find_spec("progressbar")
-if pb is not None:
-    from progressbar import progressbar
-
 def lire_fasta(filename):
 
     key = re.compile("[>].*")
@@ -36,6 +31,7 @@ def lire_fasta(filename):
                     current_seq = "".join(tmp_seq)
                     mode = attente_cle
                     dic[current_key] = current_seq
+                    tmp_seq = []
 
             line = file.readline()
 
@@ -122,7 +118,7 @@ def backtrack(T):
         else:
             print("bug")
     
-    return np.flip(track)
+    return track[::-1]
 
 def alignement_from_backtrack(seq1, seq2, backtrack):
     global D, L, U
@@ -178,30 +174,15 @@ def juke_cantor(pdistance):
     return -(3/4) * np.log(1 - (4/3) * pdistance)
 
 def matrice_distance(dic):
-    global pb
-    
     keys = list(dic.keys())
-
     matrix = np.zeros((len(keys), len(keys)))
     
-
-    if not pb:
-        for i, key1 in enumerate(keys):
-            for j, key2 in enumerate(keys[i+1:]):
-                al1, al2 = needleman_wunsch(dic[key1], dic[key2])
-                pdist = pdistance(al1, al2)
-                dist = juke_cantor(pdist)
-                matrix[i, i+j] = dist
-    else:
-        for i in range(len(keys)):
-            start = time.time()
-            key1 = keys[i]
-            for j, key2 in enumerate(keys[i+1:]):
-                al1, al2 = needleman_wunsch(dic[key1], dic[key2])
-                pdist = pdistance(al1, al2)
-                dist = juke_cantor(pdist)
-                matrix[i, i+j] = dist
-            print("i {} finished in {}s".format(i, time.time() - start))
+    for i, key1 in enumerate(keys):
+        for j, key2 in enumerate(keys[i+1:]):
+            al1, al2 = needleman_wunsch(dic[key1], dic[key2])
+            pdist = pdistance(al1, al2)
+            dist = juke_cantor(pdist)
+            matrix[i, i+j] = dist
     
     return matrix
 
@@ -214,9 +195,10 @@ def main():
     m = matrice_distance(lire_fasta(fasta))
     print("Matrice de distance :")
     print(m)
-    file = "distmatrix.pkl"
+
+    file = "distmatrix"
     save_matrix(file, m)
-    print("Matrice sauvegardée dans {}".format(file))
+    print("Matrice sauvegardée dans {}.npy".format(file))
 
 if __name__ == '__main__':
     main()
