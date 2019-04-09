@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import time
+import os
 
 def lire_fasta(filename):
 
@@ -175,30 +176,120 @@ def juke_cantor(pdistance):
 
 def matrice_distance(dic):
     keys = list(dic.keys())
-    matrix = np.zeros((len(keys), len(keys)))
+    matrix = np.zeros((len(keys), len(keys)), dtype=np.float64)
+    print(type(matrix[0,0]))
     
     for i, key1 in enumerate(keys):
-        for j, key2 in enumerate(keys[i+1:]):
+        for j in range(i, len(keys)):
+            key2 = keys[j]
             al1, al2 = needleman_wunsch(dic[key1], dic[key2])
             pdist = pdistance(al1, al2)
             dist = juke_cantor(pdist)
-            matrix[i, i+j] = dist
+            matrix[i, j] = float(dist)
+            
+        print("{}/{}".format(i, len(keys)))
     
     return matrix
 
 def save_matrix(filename, matrix):
     np.save(filename, matrix)
 
-def main():
+def plus_proche_dans_matrice(matrice):
+    min = matrice[0][1]
     
-    fasta = "cat_dna.fasta"
-    m = matrice_distance(lire_fasta(fasta))
-    print("Matrice de distance :")
-    print(m)
+    mini, minj = 0, 1
+    for i in range(0, np.size(matrice[:,0])):
+        for j in range(i+1, np.size(matrice[0])):
+            if min > matrice[i, j]:
+                min = matrice[i, j]
+                mini = i
+                minj = j
+    return mini, minj, min
 
-    file = "distmatrix"
-    save_matrix(file, m)
-    print("Matrice sauvegardée dans {}.npy".format(file))
+def update_matrice(ancienne_matrice, utos, plus_proches):
+    # n = np.size(ancienne_matrice[0]) - 1
+    matrice = np.copy(ancienne_matrice)
 
-if __name__ == '__main__':
-    main()
+    # on retire les lignes et colonnes en trop
+    matrice = np.delete(matrice, plus_proches[0], 0)
+    matrice = np.delete(matrice, plus_proches[1], 1)
+    
+    # on met à jour les valeurs des lignes et colonnes fusionnées
+    i = plus_proches[0]
+    j = plus_proches[1]
+    ni = utos[i]
+    nj = utos[j]
+    for k in range(i+1, np.size(matrice[:, 0])):
+        dik = (ancienne_matrice[i, k] if k < j else ancienne_matrice[k, j + 1])
+        djk = (ancienne_matrice[k, j] if k < j else ancienne_matrice[k, j + 1])
+        matrice[i, k] = (dik * ni + djk * nj) / float(ni + nj)
+    for k in range(i - 1, -1, -1):
+        dki = ancienne_matrice[k, i]
+        dkj = ancienne_matrice[k, j]
+        matrice[k, i] = (dki * ni + dkj * nj) / float(ni + nj)
+    
+    utos[plus_proches[0]] += utos[plus_proches[1]]
+    del utos[plus_proches[1]]
+
+    return matrice
+
+def upgma(matrice, dic):
+    
+    nouvelle = None
+    newick = ""
+    utos = [1] * np.size(matrice[0])
+    while not np.equal(nouvelle, matrice).all():
+        i1, i2, d = plus_proche_dans_matrice(matrice)
+        print(i1, i2, d)
+        newick = "({} : {}, {} : {})".format(dic[i1], d/2, dic[i2], d/2)
+        print(newick)
+        utos[i1] += utos[i2]
+        del utos[i2]
+        nouvelle = update_matrice(matrice, utos, (i1, i2))
+        print(nouvelle)
+        break
+    
+    return newick
+
+fasta = "cat_dna.fasta"
+dic = lire_fasta(fasta)
+chiffre_vers_nom = list(dic.keys())
+filename = "distmatrix.npy"
+
+if os.path.isfile(filename):
+    m = np.load(filename)
+else:
+    m = matrice_distance(dic)
+    save_matrix(filename, m)
+
+#print(m)
+#save_matrix(file, m)
+# upgma(m, chiffre_vers_nom)
+a = np.array([
+    [0, 4, 8, 2],
+    [0, 0, 8, 4],
+    [0, 0, 0, 8],
+    [0, 0, 0, 0]
+],
+dtype=np.float64)
+utos = [1, 1, 1, 1, 1]
+fusions = []
+print("Matrice avant update")
+print(a)
+print("Matrice après update 1")
+fusions.append(plus_proche_dans_matrice(a))
+print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
+a = update_matrice(a, utos, plus_proche_dans_matrice(a))
+print(a)
+print("Matrice après update 2")
+fusions.append(plus_proche_dans_matrice(a))
+print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
+a = update_matrice(a, utos, plus_proche_dans_matrice(a))
+print(a)
+print("Matrice après update 3")
+fusions.append(plus_proche_dans_matrice(a))
+print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
+a = update_matrice(a, utos, plus_proche_dans_matrice(a))
+print(a)
+
+print("Fusions : {}".format(fusions))
