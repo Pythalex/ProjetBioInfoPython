@@ -211,7 +211,7 @@ def update_matrice(ancienne_matrice, utos, plus_proches):
     matrice = np.copy(ancienne_matrice)
 
     # on retire les lignes et colonnes en trop
-    matrice = np.delete(matrice, plus_proches[0], 0)
+    matrice = np.delete(matrice, plus_proches[1], 0)
     matrice = np.delete(matrice, plus_proches[1], 1)
     
     # on met à jour les valeurs des lignes et colonnes fusionnées
@@ -235,19 +235,17 @@ def update_matrice(ancienne_matrice, utos, plus_proches):
 
 def upgma(matrice, dic):
     
-    nouvelle = None
+    matrice
     newick = ""
     utos = [1] * np.size(matrice[0])
-    while not np.equal(nouvelle, matrice).all():
+
+    while not np.size(matrice[0]) == 1:
         i1, i2, d = plus_proche_dans_matrice(matrice)
-        print(i1, i2, d)
         newick = "({} : {}, {} : {})".format(dic[i1], d/2, dic[i2], d/2)
         print(newick)
         utos[i1] += utos[i2]
         del utos[i2]
-        nouvelle = update_matrice(matrice, utos, (i1, i2))
-        print(nouvelle)
-        break
+        matrice = update_matrice(matrice, utos, (i1, i2))
     
     return newick
 
@@ -262,34 +260,35 @@ else:
     m = matrice_distance(dic)
     save_matrix(filename, m)
 
-#print(m)
-#save_matrix(file, m)
-# upgma(m, chiffre_vers_nom)
-a = np.array([
-    [0, 4, 8, 2],
-    [0, 0, 8, 4],
-    [0, 0, 0, 8],
-    [0, 0, 0, 0]
-],
-dtype=np.float64)
-utos = [1, 1, 1, 1, 1]
-fusions = []
-print("Matrice avant update")
-print(a)
-print("Matrice après update 1")
-fusions.append(plus_proche_dans_matrice(a))
-print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
-a = update_matrice(a, utos, plus_proche_dans_matrice(a))
-print(a)
-print("Matrice après update 2")
-fusions.append(plus_proche_dans_matrice(a))
-print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
-a = update_matrice(a, utos, plus_proche_dans_matrice(a))
-print(a)
-print("Matrice après update 3")
-fusions.append(plus_proche_dans_matrice(a))
-print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
-a = update_matrice(a, utos, plus_proche_dans_matrice(a))
-print(a)
+print(m)
+print(upgma(m, chiffre_vers_nom))
 
-print("Fusions : {}".format(fusions))
+# a = np.array([
+#     [0, 4, 8, 2],
+#     [0, 0, 8, 4],
+#     [0, 0, 0, 8],
+#     [0, 0, 0, 0]
+# ],
+# dtype=np.float64)
+# utos = [1, 1, 1, 1, 1]
+# fusions = []
+
+# print("Matrice avant update")
+# print(a)
+# print("Matrice après update 1")
+# fusions.append(plus_proche_dans_matrice(a))
+# print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
+# a = update_matrice(a, utos, plus_proche_dans_matrice(a))
+# print(a)
+# print("Matrice après update 2")
+# fusions.append(plus_proche_dans_matrice(a))
+# print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
+# a = update_matrice(a, utos, plus_proche_dans_matrice(a))
+# print(a)
+# print("Matrice après update 3")
+# fusions.append(plus_proche_dans_matrice(a))
+# print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
+# a = update_matrice(a, utos, plus_proche_dans_matrice(a))
+# print(a)
+# print("Fusions : {}".format(fusions))
+
