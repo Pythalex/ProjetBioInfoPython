@@ -206,7 +206,7 @@ def plus_proche_dans_matrice(matrice):
                 minj = j
     return mini, minj, min
 
-def update_matrice(ancienne_matrice, utos, plus_proches):
+def update_matrice(ancienne_matrice, arbre, plus_proches):
     # n = np.size(ancienne_matrice[0]) - 1
     matrice = np.copy(ancienne_matrice)
 
@@ -217,37 +217,112 @@ def update_matrice(ancienne_matrice, utos, plus_proches):
     # on met à jour les valeurs des lignes et colonnes fusionnées
     i = plus_proches[0]
     j = plus_proches[1]
-    ni = utos[i]
-    nj = utos[j]
+    ni = arbre[i].uto()
+    nj = arbre[j].uto()
     for k in range(i+1, np.size(matrice[:, 0])):
         dik = (ancienne_matrice[i, k] if k < j else ancienne_matrice[k, j + 1])
         djk = (ancienne_matrice[k, j] if k < j else ancienne_matrice[k, j + 1])
         matrice[i, k] = (dik * ni + djk * nj) / float(ni + nj)
-    for k in range(i - 1, -1, -1):
-        dki = ancienne_matrice[k, i]
-        dkj = ancienne_matrice[k, j]
-        matrice[k, i] = (dki * ni + dkj * nj) / float(ni + nj)
-    
-    utos[plus_proches[0]] += utos[plus_proches[1]]
-    del utos[plus_proches[1]]
+    for k in range(i+1, np.size(matrice[:, 0])):
+        dki = ancienne_matrice[i, k]
+        dkj = ancienne_matrice[j, k]
+        matrice[i, k] = (dki * ni + dkj * nj) / float(ni + nj)
 
     return matrice
 
-def upgma(matrice, dic):
+def upgmaOld(matrice, dic):
     
     matrice
     newick = ""
     utos = [1] * np.size(matrice[0])
 
+    lastd = 0
+
     while not np.size(matrice[0]) == 1:
+
         i1, i2, d = plus_proche_dans_matrice(matrice)
-        newick = "({} : {}, {} : {})".format(dic[i1], d/2, dic[i2], d/2)
-        print(newick)
+
+        newick = "({} : {}, {} : {})".format(dic[i1], d/2 - lastd, dic[i2], d/2)
+        lastd = d
+
+        dic[i1] = "({} : {}, {} : {})".format(dic[i1], d/2, dic[i2], d/2)
+        del dic[i2]
+
+        matrice = update_matrice(matrice, utos, (i1, i2))
+
         utos[i1] += utos[i2]
         del utos[i2]
-        matrice = update_matrice(matrice, utos, (i1, i2))
     
-    return newick
+    return newick + ";"
+
+class Feuille:
+    nom = ""
+    distance_gauche = 0
+    distance_droite = 0
+
+    def __init__(self, nom):
+        self.nom = nom
+
+    def toString(self, first=False):
+        return self.nom
+    
+    def uto(self):
+        return 1
+
+class Noeud:
+    fils_gauche = None
+    fils_droite = None
+    distance_gauche = 0
+    distance_droite = 0
+
+    def __init__(self, g, dg, d, dd):
+        self.fils_gauche = g
+        self.fils_droite = d
+        self.distance_gauche = dg
+        self.distance_droite = dd
+
+    def toString(self, first=True):
+        return "({} : {}, {} : {}){}".format(self.fils_gauche.toString(False), 
+            self.distance_gauche, 
+            self.fils_droite.toString(False), 
+            self.distance_droite,
+            "" if not first else ";")
+
+    def uto(self):
+        return self.fils_gauche.uto() + self.fils_droite.uto()
+
+def upgma(matrice, dic):
+    arbre = [Feuille(i) for i in dic]   
+
+    while np.size(matrice[0]) > 1:
+        i, j, distance = plus_proche_dans_matrice(matrice)
+
+        matrice = update_matrice(matrice, arbre, (i, j))
+
+        print(arbre[i].toString())
+        arbre[i] = Noeud(arbre[i], 
+            distance/2 - arbre[i].distance_gauche, 
+            arbre[j], 
+            distance/2)
+        del arbre[j]
+
+        input()
+
+
+    return arbre[0].toString()
+
+def print_matrix(m):
+
+    print("  ", end="")
+    for j in range(np.size(m[0])):
+        if j < 10:
+            print(" {}  ".format(j), end="")
+        else:
+            print(" {} ".format(j), end="")
+    print()
+    for i in range(np.size(m[:, 0])):
+        print((" " if i < 10 else "") + str(i), end="")
+        print(m[i])
 
 fasta = "cat_dna.fasta"
 dic = lire_fasta(fasta)
@@ -260,8 +335,9 @@ else:
     m = matrice_distance(dic)
     save_matrix(filename, m)
 
-print(m)
-print(upgma(m, chiffre_vers_nom))
+# print_matrix(np.around(np.dot(m, 100)))
+# n = (upgma(m, chiffre_vers_nom))
+# print(n)
 
 # a = np.array([
 #     [0, 4, 8, 2],
@@ -292,3 +368,102 @@ print(upgma(m, chiffre_vers_nom))
 # print(a)
 # print("Fusions : {}".format(fusions))
 
+def get_Dab(matrice, a, b):
+    if b < a:
+        c = a
+        a = b
+        b = c
+    return matrice[a, b]
+
+def calculer_Sx(matrice, x, arbre):
+    return (np.sum(matrice[x]) + np.sum(matrice[:,x])) / (np.size(matrice[0])-2)
+
+def calculer_Mij(matrice, i, j, arbre):
+    return get_Dab(matrice, i, j) - calculer_Sx(matrice, i, arbre) - calculer_Sx(matrice, j, arbre)
+
+def plus_petit_Mij(matrice, arbre):
+    min = calculer_Mij(matrice, 0, 1, arbre)
+    
+    mini, minj = 0, 1
+    for i in range(0, np.size(matrice[:,0])):
+        for j in range(i+1, np.size(matrice[0])):
+            mij = calculer_Mij(matrice, i, j, arbre)
+            if min > mij:
+                min = mij
+                mini = i
+                minj = j
+    return mini, minj, min
+
+def calculer_sau(matrice, a, b, arbre):
+    return get_Dab(matrice, a, b) / 2 + (calculer_Sx(matrice, a, arbre) - calculer_Sx(matrice, b, arbre)) / 2
+
+def creer_noeud_ab(matrice, a, b, arbre):
+    if b < a:
+        c = a
+        a = b
+        b = c
+    
+    return Noeud(arbre[a], calculer_sau(matrice, a, b, arbre), arbre[b], calculer_sau(matrice, b, a, arbre))
+
+def cycle(matrice, arbre):
+    i, j, min = plus_petit_Mij(matrice, arbre)
+    n = creer_noeud_ab(matrice, i, j, arbre)
+    arbre[i] = n
+    del arbre[j]
+    return i, j
+
+def neighbor_joining(matrice, dic):
+    arbre = [Feuille(i) for i in dic]
+
+    print(arbre)
+    while (np.size(matrice[0])) > 2:
+        i, j = cycle(matrice, arbre)
+        matrice = update_matrice(matrice, arbre, (i, j))
+        print(arbre)
+    
+    return arbre[0]
+
+def before():
+    return (np.array([
+        [0, 5, 4, 7, 6, 8],
+        [0, 0, 7, 10, 9, 11],
+        [0, 0, 0, 7, 6, 8],
+        [0, 0, 0, 0, 5, 9],
+        [0, 0, 0, 0, 0, 8],
+        [0, 0, 0, 0, 0, 0]
+    ]
+    ),
+    [Feuille(i) for i in ["A", "B", "C", "D", "E", "F"]])
+
+def test_calculer_sx():
+    m, arbre = before()
+    assert calculer_Sx(m, 0, arbre) == 7.5
+    assert calculer_Sx(m, 1, arbre) == 10.5
+    assert calculer_Sx(m, 2, arbre) == 8
+    assert calculer_Sx(m, 3, arbre) == 9.5
+    assert calculer_Sx(m, 4, arbre) == 8.5
+    assert calculer_Sx(m, 5, arbre) == 11
+test_calculer_sx()
+
+def test_calculer_mij():
+    m, arbre = before()
+    assert calculer_Mij(m, 0, 1, arbre) == -13
+    assert calculer_Mij(m, 3, 4, arbre) == -13
+test_calculer_mij()
+
+def test_calculer_sau():
+    m, arbre = before()
+    assert calculer_sau(m, 0, 1, arbre) == 1
+    assert calculer_sau(m, 1, 0, arbre) == 4
+test_calculer_sau()
+
+def test_creer_noeud_ab():
+    m, arbre = before()
+    n = creer_noeud_ab(m, 0, 1, arbre)
+    assert n.distance_gauche == 1
+    assert n.distance_droite == 4
+    assert n.fils_gauche.toString() == "A"
+    assert n.fils_droite.toString() == "B"
+test_creer_noeud_ab()
+
+print(neighbor_joining(m, dic))
