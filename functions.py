@@ -194,6 +194,12 @@ def matrice_distance(dic):
 def save_matrix(filename, matrix):
     np.save(filename, matrix)
 
+def get_Dab(matrice, a, b):
+    print("a {}, b {}, matrice[a, b] {}, matrice[b, a] {}".format(a, b, matrice[a,b], matrice[b,a]))
+    if b < a:
+        a, b = b, a
+    return matrice[a, b]
+
 def plus_proche_dans_matrice(matrice):
     min = matrice[0][1]
     
@@ -207,26 +213,35 @@ def plus_proche_dans_matrice(matrice):
     return mini, minj, min
 
 def update_matrice(ancienne_matrice, arbre, plus_proches):
-    # n = np.size(ancienne_matrice[0]) - 1
-    matrice = np.copy(ancienne_matrice)
 
     # on retire les lignes et colonnes en trop
-    matrice = np.delete(matrice, plus_proches[1], 0)
-    matrice = np.delete(matrice, plus_proches[1], 1)
+    n = np.size(ancienne_matrice[0])
+    matrice = np.ndarray((n - 1, n - 1), dtype=np.float64)
+    matrice.fill(0)
     
     # on met à jour les valeurs des lignes et colonnes fusionnées
     i = plus_proches[0]
     j = plus_proches[1]
     ni = arbre[i].uto()
     nj = arbre[j].uto()
-    for k in range(i+1, np.size(matrice[:, 0])):
-        dik = (ancienne_matrice[i, k] if k < j else ancienne_matrice[k, j + 1])
-        djk = (ancienne_matrice[k, j] if k < j else ancienne_matrice[k, j + 1])
-        matrice[i, k] = (dik * ni + djk * nj) / float(ni + nj)
-    for k in range(i+1, np.size(matrice[:, 0])):
-        dki = ancienne_matrice[i, k]
-        dkj = ancienne_matrice[j, k]
-        matrice[i, k] = (dki * ni + dkj * nj) / float(ni + nj)
+    # for k in range(i+1, np.size(matrice[:, 0])):
+    #     dik = (ancienne_matrice[i, k] if k < j else ancienne_matrice[k, j + 1])
+    #     djk = (ancienne_matrice[k, j] if k < j else ancienne_matrice[k, j + 1])
+    #     matrice[i, k] = (dik * ni + djk * nj) / float(ni + nj)
+    # for k in range(i+1, np.size(matrice[:, 0])):
+    #     dki = ancienne_matrice[i, k]
+    #     dkj = ancienne_matrice[j, k]
+    #     matrice[i, k] = (dki * ni + dkj * nj) / float(ni + nj)
+    ni = arbre[i].uto()
+    nj = arbre[j].uto()
+    nij = ni + nj
+    for l in range(np.size(matrice[:,0])):
+        for k in range(l+1, np.size(matrice[0])):
+            terme1 = (ni * get_Dab(ancienne_matrice, i, k) / nij)
+            terme2 = (nj * get_Dab(ancienne_matrice, j, k) / nij)
+            print("terme 1 = {} * {} / {}".format(ni, get_Dab(ancienne_matrice, i, k), nij))
+            print("terme 2 = {} * {} / {}".format(nj, get_Dab(ancienne_matrice, j, k), nij))
+            matrice[l, k] = terme1 + terme2
 
     return matrice
 
@@ -306,9 +321,6 @@ def upgma(matrice, dic):
             distance/2)
         del arbre[j]
 
-        input()
-
-
     return arbre[0].toString()
 
 def print_matrix(m):
@@ -339,41 +351,42 @@ else:
 # n = (upgma(m, chiffre_vers_nom))
 # print(n)
 
-# a = np.array([
-#     [0, 4, 8, 2],
-#     [0, 0, 8, 4],
-#     [0, 0, 0, 8],
-#     [0, 0, 0, 0]
-# ],
-# dtype=np.float64)
-# utos = [1, 1, 1, 1, 1]
-# fusions = []
+m = np.array([
+    [0, 4, 8, 2],
+    [0, 0, 8, 4],
+    [0, 0, 0, 8],
+    [0, 0, 0, 0]
+],
+dtype=np.float64)
+utos = [1, 1, 1, 1, 1]
+fusions = []
+dic = ["A", "B", "C", "D"]
+arbre = [Feuille(i) for i in dic]
 
-# print("Matrice avant update")
-# print(a)
-# print("Matrice après update 1")
-# fusions.append(plus_proche_dans_matrice(a))
-# print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
-# a = update_matrice(a, utos, plus_proche_dans_matrice(a))
-# print(a)
-# print("Matrice après update 2")
-# fusions.append(plus_proche_dans_matrice(a))
-# print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
-# a = update_matrice(a, utos, plus_proche_dans_matrice(a))
-# print(a)
-# print("Matrice après update 3")
-# fusions.append(plus_proche_dans_matrice(a))
-# print("plus proches : i {} | j {} | minimum {}".format(*fusions[-1]))
-# a = update_matrice(a, utos, plus_proche_dans_matrice(a))
-# print(a)
-# print("Fusions : {}".format(fusions))
+while np.size(m[0]) > 1:
+    i, j, distance = plus_proche_dans_matrice(m)
+    print("i {}, j {}, distance {}".format(i, j, distance))
 
-def get_Dab(matrice, a, b):
-    if b < a:
-        c = a
-        a = b
-        b = c
-    return matrice[a, b]
+    print("Avant : \n", m)
+    m = update_matrice(m, arbre, (i, j))
+    print("Après : \n", m)
+
+    print(arbre[i].toString())
+    arbre[i] = Noeud(arbre[i], 
+        distance/2 - arbre[i].distance_gauche, 
+        arbre[j], 
+        distance/2)
+    del arbre[j]
+
+n = arbre[0].toString()
+print(n)
+
+# from ete3 import Tree, TreeStyle
+
+# t = Tree(n)
+# ts = TreeStyle()
+# ts.show_branch_length = True
+# t.render('%%inline', w=183, units='mm', tree_style=ts)
 
 def calculer_Sx(matrice, x, arbre):
     return (np.sum(matrice[x]) + np.sum(matrice[:,x])) / (np.size(matrice[0])-2)
@@ -435,35 +448,141 @@ def before():
     ),
     [Feuille(i) for i in ["A", "B", "C", "D", "E", "F"]])
 
-def test_calculer_sx():
-    m, arbre = before()
-    assert calculer_Sx(m, 0, arbre) == 7.5
-    assert calculer_Sx(m, 1, arbre) == 10.5
-    assert calculer_Sx(m, 2, arbre) == 8
-    assert calculer_Sx(m, 3, arbre) == 9.5
-    assert calculer_Sx(m, 4, arbre) == 8.5
-    assert calculer_Sx(m, 5, arbre) == 11
-test_calculer_sx()
+# def test_calculer_sx():
+#     m, arbre = before()
+#     assert calculer_Sx(m, 0, arbre) == 7.5
+#     assert calculer_Sx(m, 1, arbre) == 10.5
+#     assert calculer_Sx(m, 2, arbre) == 8
+#     assert calculer_Sx(m, 3, arbre) == 9.5
+#     assert calculer_Sx(m, 4, arbre) == 8.5
+#     assert calculer_Sx(m, 5, arbre) == 11
+# test_calculer_sx()
 
-def test_calculer_mij():
-    m, arbre = before()
-    assert calculer_Mij(m, 0, 1, arbre) == -13
-    assert calculer_Mij(m, 3, 4, arbre) == -13
-test_calculer_mij()
+# def test_calculer_mij():
+#     m, arbre = before()
+#     assert calculer_Mij(m, 0, 1, arbre) == -13
+#     assert calculer_Mij(m, 3, 4, arbre) == -13
+# test_calculer_mij()
 
-def test_calculer_sau():
-    m, arbre = before()
-    assert calculer_sau(m, 0, 1, arbre) == 1
-    assert calculer_sau(m, 1, 0, arbre) == 4
-test_calculer_sau()
+# def test_calculer_sau():
+#     m, arbre = before()
+#     assert calculer_sau(m, 0, 1, arbre) == 1
+#     assert calculer_sau(m, 1, 0, arbre) == 4
+# test_calculer_sau()
 
-def test_creer_noeud_ab():
-    m, arbre = before()
-    n = creer_noeud_ab(m, 0, 1, arbre)
-    assert n.distance_gauche == 1
-    assert n.distance_droite == 4
-    assert n.fils_gauche.toString() == "A"
-    assert n.fils_droite.toString() == "B"
-test_creer_noeud_ab()
+# def test_creer_noeud_ab():
+#     m, arbre = before()
+#     n = creer_noeud_ab(m, 0, 1, arbre)
+#     assert n.distance_gauche == 1
+#     assert n.distance_droite == 4
+#     assert n.fils_gauche.toString() == "A"
+#     assert n.fils_droite.toString() == "B"
+# test_creer_noeud_ab()
 
-print(neighbor_joining(m, dic))
+# print(neighbor_joining(m, dic))
+
+
+# TODO: A SUPPRIMER
+
+# A Quick Implementation of UPGMA (Unweighted Pair Group Method with Arithmetic Mean)
+
+# lowest_cell:
+#   Locates the smallest cell in the table
+def lowest_cell(table):
+    # Set default to infinity
+    min_cell = float("inf")
+    x, y = -1, -1
+
+    # Go through every cell, looking for the lowest
+    for i in range(len(table)):
+        for j in range(len(table[i])):
+            if table[i][j] < min_cell:
+                min_cell = table[i][j]
+                x, y = i, j
+
+    # Return the x, y co-ordinate of cell
+    return x, y
+
+
+# join_labels:
+#   Combines two labels in a list of labels
+def join_labels(labels, a, b):
+    # Swap if the indices are not ordered
+    if b < a:
+        a, b = b, a
+
+    # Join the labels in the first index
+    labels[a] = "(" + labels[a] + "," + labels[b] + ")"
+
+    # Remove the (now redundant) label in the second index
+    del labels[b]
+
+
+# join_table:
+#   Joins the entries of a table on the cell (a, b) by averaging their data entries
+def join_table(table, a, b):
+    # Swap if the indices are not ordered
+    if b < a:
+        a, b = b, a
+
+    # For the lower index, reconstruct the entire row (A, i), where i < A
+    row = []
+    for i in range(0, a):
+        row.append((table[a][i] + table[b][i])/2)
+    table[a] = row
+    
+    # Then, reconstruct the entire column (i, A), where i > A
+    #   Note: Since the matrix is lower triangular, row b only contains values for indices < b
+    for i in range(a+1, b):
+        table[i][a] = (table[i][a]+table[b][i])/2
+        
+    #   We get the rest of the values from row i
+    for i in range(b+1, len(table)):
+        table[i][a] = (table[i][a]+table[i][b])/2
+        # Remove the (now redundant) second index column entry
+        del table[i][b]
+
+    # Remove the (now redundant) second index row
+    del table[b]
+
+
+# UPGMA:
+#   Runs the UPGMA algorithm on a labelled table
+def UPGMA(table, labels):
+    # Until all labels have been joined...
+    while len(labels) > 1:
+        # Locate lowest cell in the table
+        x, y = lowest_cell(table)
+
+        # Join the table on the cell co-ordinates
+        join_table(table, x, y)
+
+        # Update the labels accordingly
+        join_labels(labels, x, y)
+
+    # Return the final label
+    return labels[0]
+
+## A test using an example calculation from http://www.nmsr.org/upgma.htm
+
+# alpha_labels:
+#   Makes labels from a starting letter to an ending letter
+def alpha_labels(start, end):
+    labels = []
+    for i in range(ord(start), ord(end)+1):
+        labels.append(chr(i))
+    return labels
+
+# Test table data and corresponding labels
+M_labels = alpha_labels("A", "G")   #A through G
+M = [
+    [],                         #A
+    [19],                       #B
+    [27, 31],                   #C
+    [8, 18, 26],                #D
+    [33, 36, 41, 31],           #E
+    [18, 1, 32, 17, 35],        #F
+    [13, 13, 29, 14, 28, 12]    #G
+    ]
+
+# UPGMA(M, M_labels) should output: '((((A,D),((B,F),G)),C),E)
