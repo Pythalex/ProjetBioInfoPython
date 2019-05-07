@@ -481,9 +481,6 @@ def before():
 
 # print(neighbor_joining(m, dic))
 
-
-# TODO: A SUPPRIMER
-
 # A Quick Implementation of UPGMA (Unweighted Pair Group Method with Arithmetic Mean)
 
 # lowest_cell:
